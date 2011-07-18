@@ -50,7 +50,7 @@ module Chronic
       year = tokens[1].get_tag(ScalarYear).type
 
       if month == 12
-        next_month_year = year + 1
+        next_month_year = year + 1   
         next_month_month = 1
       else
         next_month_year = year
@@ -173,6 +173,22 @@ module Chronic
 
       begin
         Span.new(Chronic.time_class.local(year, month), Chronic.time_class.local(next_month_year, next_month_month))
+      rescue ArgumentError
+        nil
+      end
+    end
+    
+    # Handle scalar-month/scalar-day
+    def handle_sm_sd(tokens, options)
+      month = tokens[0].get_tag(ScalarMonth).type
+      day = tokens[1].get_tag(ScalarDay).type
+      year = Chronic.now.year
+
+      time_tokens = tokens.last(tokens.size - 2)
+
+      begin
+        day_start = Chronic.time_class.local(year, month, day)
+        day_or_time(day_start, time_tokens, options)
       rescue ArgumentError
         nil
       end
