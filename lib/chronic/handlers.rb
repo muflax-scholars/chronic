@@ -6,42 +6,100 @@ module Chronic
     def handle_m_d(month, day, time_tokens, options)
       month.start = Chronic.now
       span = month.this(options[:context])
-      day_start = Chronic.time_class.local(span.begin.year, span.begin.month, day)
+      year, month = span.begin.year, span.begin.month
+      day_start = Chronic.time_class.local(year, month, day)
 
       day_or_time(day_start, time_tokens, options)
     end
 
     # Handle repeater-month-name/scalar-day
     def handle_rmn_sd(tokens, options)
-      handle_m_d(tokens[0].get_tag(RepeaterMonthName), tokens[1].get_tag(ScalarDay).type, tokens[2..tokens.size], options)
+      month = tokens[0].get_tag(RepeaterMonthName)
+      day = tokens[1].get_tag(ScalarDay).type
+
+      return if month_overflow?(Chronic.now.year, month.index, day)
+
+      handle_m_d(month, day, tokens[2..tokens.size], options)
     end
 
     # Handle repeater-month-name/scalar-day with separator-on
     def handle_rmn_sd_on(tokens, options)
       if tokens.size > 3
-        handle_m_d(tokens[2].get_tag(RepeaterMonthName), tokens[3].get_tag(ScalarDay).type, tokens[0..1], options)
+        month = tokens[2].get_tag(RepeaterMonthName)
+        day = tokens[3].get_tag(ScalarDay).type
+        token_range = 0..1
       else
-        handle_m_d(tokens[1].get_tag(RepeaterMonthName), tokens[2].get_tag(ScalarDay).type, tokens[0..0], options)
+        month = tokens[1].get_tag(RepeaterMonthName)
+        day = tokens[2].get_tag(ScalarDay).type
+        token_range = 0..0
       end
+
+      return if month_overflow?(Chronic.now.year, month.index, day)
+
+      handle_m_d(month, day, tokens[token_range], options)
     end
 
     # Handle repeater-month-name/ordinal-day
     def handle_rmn_od(tokens, options)
-      handle_m_d(tokens[0].get_tag(RepeaterMonthName), tokens[1].get_tag(OrdinalDay).type, tokens[2..tokens.size], options)
+      month = tokens[0].get_tag(RepeaterMonthName)
+      day = tokens[1].get_tag(OrdinalDay).type
+
+      return if month_overflow?(Chronic.now.year, month.index, day)
+
+      handle_m_d(month, day, tokens[2..tokens.size], options)
     end
 
     # Handle ordinal-day/repeater-month-name
     def handle_od_rmn(tokens, options)
-      handle_m_d(tokens[1].get_tag(RepeaterMonthName), tokens[0].get_tag(OrdinalDay).type, tokens[2..tokens.size], options)
+      month = tokens[1].get_tag(RepeaterMonthName)
+      day = tokens[0].get_tag(OrdinalDay).type
+
+      return if month_overflow?(Chronic.now.year, month.index, day)
+
+      handle_m_d(month, day, tokens[2..tokens.size], options)
+    end
+
+    def handle_sy_rmn_od(tokens, options)
+      year = tokens[0].get_tag(ScalarYear).type
+      month = tokens[1].get_tag(RepeaterMonthName).index
+      day = tokens[2].get_tag(OrdinalDay).type
+      time_tokens = tokens.last(tokens.size - 3)
+
+      return if month_overflow?(year, month, day)
+
+      begin
+        day_start = Chronic.time_class.local(year, month, day)
+        day_or_time(day_start, time_tokens, options)
+      rescue ArgumentError
+        nil
+      end
+    end
+
+    # Handle scalar-day/repeater-month-name
+    def handle_sd_rmn(tokens, options)
+      month = tokens[1].get_tag(RepeaterMonthName)
+      day = tokens[0].get_tag(ScalarDay).type
+
+      return if month_overflow?(Chronic.now.year, month.index, day)
+
+      handle_m_d(month, day, tokens[2..tokens.size], options)
     end
 
     # Handle repeater-month-name/ordinal-day with separator-on
     def handle_rmn_od_on(tokens, options)
       if tokens.size > 3
-        handle_m_d(tokens[2].get_tag(RepeaterMonthName), tokens[3].get_tag(OrdinalDay).type, tokens[0..1], options)
+        month = tokens[2].get_tag(RepeaterMonthName)
+        day = tokens[3].get_tag(OrdinalDay).type
+        token_range = 0..1
       else
-        handle_m_d(tokens[1].get_tag(RepeaterMonthName), tokens[2].get_tag(OrdinalDay).type, tokens[0..0], options)
+        month = tokens[1].get_tag(RepeaterMonthName)
+        day = tokens[2].get_tag(OrdinalDay).type
+        token_range = 0..0
       end
+
+      return if month_overflow?(Chronic.now.year, month.index, day)
+
+      handle_m_d(month, day, tokens[token_range], options)
     end
 
     # Handle repeater-month-name/scalar-year
@@ -58,7 +116,8 @@ module Chronic
       end
 
       begin
-        Span.new(Chronic.time_class.local(year, month), Chronic.time_class.local(next_month_year, next_month_month))
+        end_time = Chronic.time_class.local(next_month_year, next_month_month)
+        Span.new(Chronic.time_class.local(year, month), end_time)
       rescue ArgumentError
         nil
       end
@@ -83,6 +142,8 @@ module Chronic
       year = tokens[2].get_tag(ScalarYear).type
       time_tokens = tokens.last(tokens.size - 3)
 
+      return if month_overflow?(year, month, day)
+
       begin
         day_start = Chronic.time_class.local(year, month, day)
         day_or_time(day_start, time_tokens, options)
@@ -98,6 +159,8 @@ module Chronic
       year = tokens[2].get_tag(ScalarYear).type
       time_tokens = tokens.last(tokens.size - 3)
 
+      return if month_overflow?(year, month, day)
+
       begin
         day_start = Chronic.time_class.local(year, month, day)
         day_or_time(day_start, time_tokens, options)
@@ -112,6 +175,8 @@ module Chronic
       month = tokens[1].get_tag(RepeaterMonthName).index
       year = tokens[2].get_tag(ScalarYear).type
       time_tokens = tokens.last(tokens.size - 3)
+
+      return if month_overflow?(year, month, day)
 
       begin
         day_start = Chronic.time_class.local(year, month, day)
@@ -133,8 +198,9 @@ module Chronic
       month = tokens[0].get_tag(ScalarMonth).type
       day = tokens[1].get_tag(ScalarDay).type
       year = tokens[2].get_tag(ScalarYear).type
-
       time_tokens = tokens.last(tokens.size - 3)
+
+      return if month_overflow?(year, month, day)
 
       begin
         day_start = Chronic.time_class.local(year, month, day)
@@ -172,7 +238,8 @@ module Chronic
       end
 
       begin
-        Span.new(Chronic.time_class.local(year, month), Chronic.time_class.local(next_month_year, next_month_month))
+        end_time = Chronic.time_class.local(next_month_year, next_month_month)
+        Span.new(Chronic.time_class.local(year, month), end_time)
       rescue ArgumentError
         nil
       end
@@ -314,12 +381,24 @@ module Chronic
         raise ChronicPain, "Invalid grabber"
       end
 
-      puts "--#{outer_span}" if Chronic.debug
+      if Chronic.debug
+        puts "Handler-class: #{head.class}"
+        puts "--#{outer_span}"
+      end
+
       find_within(repeaters, outer_span, pointer)
     end
 
     def get_repeaters(tokens)
       tokens.map { |token| token.get_tag(Repeater) }.compact.sort.reverse
+    end
+
+    def month_overflow?(year, month, day)
+      if Date.leap?(year)
+        day > RepeaterMonth::MONTH_DAYS_LEAP[month - 1]
+      else
+        day > RepeaterMonth::MONTH_DAYS[month - 1]
+      end
     end
 
     # Recursively finds repeaters within other repeaters.
@@ -397,70 +476,6 @@ module Chronic
       tokens
     end
 
-  end
-
-  class Handler
-    # @return [Array] A list of patterns
-    attr_accessor :pattern
-
-    # @return [Symbol] The method which handles this list of patterns.
-    #   This method should exist inside the {Handlers} module
-    attr_accessor :handler_method
-
-    # @param [Array]  pattern A list of patterns to match tokens against
-    # @param [Symbol] handler_method The method to be invoked when patterns
-    #   are matched. This method should exist inside the {Handlers} module
-    def initialize(pattern, handler_method)
-      @pattern = pattern
-      @handler_method = handler_method
-    end
-
-    # @param [#to_s]  The snake_case name representing a Chronic constant
-    # @return [Class] The class represented by `name`
-    # @raise [NameError] Raises if this constant could not be found
-    def constantize(name)
-      Chronic.const_get name.to_s.gsub(/(^|_)(.)/) { $2.upcase }
-    end
-
-    # @param [Array] tokens
-    # @param [Hash]  definitions
-    # @return [Boolean]
-    # @see Chronic.tokens_to_span
-    def match(tokens, definitions)
-      token_index = 0
-
-      @pattern.each do |element|
-        name = element.to_s
-        optional = name[-1, 1] == '?'
-        name = name.chop if optional
-
-        if element.instance_of? Symbol
-          klass = constantize(name)
-          match = tokens[token_index] && !tokens[token_index].tags.select { |o| o.kind_of?(klass) }.empty?
-
-          return false if !match && !optional
-          (token_index += 1; next) if match
-          next if !match && optional
-        elsif element.instance_of? String
-          return true if optional && token_index == tokens.size
-          sub_handlers = definitions[name.intern] || raise(ChronicPain, "Invalid subset #{name} specified")
-          sub_handlers.each do |sub_handler|
-            return true if sub_handler.match(tokens[token_index..tokens.size], definitions)
-          end
-          return false
-        else
-          raise ChronicPain, "Invalid match type: #{element.class}"
-        end
-      end
-      return false if token_index != tokens.size
-      return true
-    end
-
-    # @param [Handler]  The handler to compare
-    # @return [Boolean] True if these handlers match
-    def ==(other)
-      @pattern == other.pattern
-    end
   end
 
 end

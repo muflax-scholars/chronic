@@ -8,9 +8,6 @@ class TestParsing < Test::Unit::TestCase
     @time_2006_08_16_14_00_00 = TIME_2006_08_16_14_00_00
   end
 
-  def test_parse_m_d
-  end
-
   def test_handle_rmn_sd
     time = parse_now("aug 3")
     assert_equal Time.local(2006, 8, 3, 12), time
@@ -79,6 +76,22 @@ class TestParsing < Test::Unit::TestCase
     assert_equal Time.local(2006, 12, 11, 8), time
   end
 
+  def test_handle_sy_rmn_od
+    time = parse_now("2009 May 22nd")
+    assert_equal Time.local(2009, 05, 22, 12), time
+  end
+
+  def test_handle_sd_rmn
+    time = parse_now("22 February")
+    assert_equal Time.local(2007, 2, 22, 12), time
+
+    time = parse_now("31 of may at 6:30pm")
+    assert_equal Time.local(2007, 5, 31, 18, 30), time
+
+    time = parse_now("11 december 8am")
+    assert_equal Time.local(2006, 12, 11, 8), time
+  end
+
   def test_handle_rmn_od_on
     time = parse_now("5:00 pm may 27th", :context => :past)
     assert_equal Time.local(2006, 5, 27, 17), time
@@ -111,6 +124,12 @@ class TestParsing < Test::Unit::TestCase
 
   def test_handle_sy_sm_sd_t_tz
     time = parse_now("2011-07-03 22:11:35 +0100")
+    assert_equal 1309727495, time.to_i
+
+    time = parse_now("2011-07-03 22:11:35 +01:00")
+    assert_equal 1309727495, time.to_i
+
+    time = parse_now("2011-07-03 21:11:35 UTC")
     assert_equal 1309727495, time.to_i
   end
 
@@ -212,6 +231,19 @@ class TestParsing < Test::Unit::TestCase
 
     time = parse_now("5/27/1979 4am")
     assert_equal Time.local(1979, 5, 27, 4), time
+
+    time = parse_now("7/12/11")
+    assert_equal Time.local(2011, 7, 12, 12), time
+
+    time = parse_now("7/12/11", :endian_precedence => :little)
+    assert_equal Time.local(2011, 12, 7, 12), time
+
+    time = parse_now("9/19/2011 6:05:57 PM")
+    assert_equal Time.local(2011, 9, 19, 18, 05, 57), time
+
+    # month day overflows
+    time = parse_now("30/2/2000")
+    assert_nil time
   end
 
   def test_handle_sd_sm_sy
@@ -404,11 +436,11 @@ class TestParsing < Test::Unit::TestCase
   def test_parse_guess_gr
     # year
 
-    time = parse_now("this year")
-    assert_equal Time.local(2006, 10, 24, 12, 30), time
+    time = parse_now("this year", :guess => false)
+    assert_equal Time.local(2006, 8, 17), time.begin
 
-    time = parse_now("this year", :context => :past)
-    assert_equal Time.local(2006, 4, 24, 12, 30), time
+    time = parse_now("this year", :context => :past, :guess => false)
+    assert_equal Time.local(2006, 1, 1), time.begin
 
     # month
 
@@ -782,11 +814,11 @@ class TestParsing < Test::Unit::TestCase
   end
 
   def test_argument_validation
-    assert_raise(Chronic::InvalidArgumentException) do
+    assert_raise(ArgumentError) do
       time = Chronic.parse("may 27", :foo => :bar)
     end
 
-    assert_raise(Chronic::InvalidArgumentException) do
+    assert_raise(ArgumentError) do
       time = Chronic.parse("may 27", :context => :bar)
     end
   end
@@ -843,6 +875,11 @@ class TestParsing < Test::Unit::TestCase
     sleep 0.1
     t2 = Chronic.parse("now")
     assert_not_equal t1, t2
+  end
+
+  def test_noon
+    t1 = Chronic.parse('2011-01-01 at noon', :ambiguous_time_range => :none)
+    assert_equal Time.local(2011, 1, 1, 12, 0), t1
   end
 
   private

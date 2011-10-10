@@ -63,16 +63,15 @@ module Chronic
 
       # ensure the specified options are valid
       (opts.keys - DEFAULT_OPTIONS.keys).each do |key|
-        raise InvalidArgumentException, "#{key} is not a valid option key."
+        raise ArgumentError, "#{key} is not a valid option key."
       end
 
       unless [:past, :future, :none].include?(options[:context])
-        raise InvalidArgumentException, "Invalid context, :past/:future only"
+        raise ArgumentError, "Invalid context, :past/:future only"
       end
 
       options[:text] = text
-      options[:now] ||= Chronic.time_class.now
-      Chronic.now = options[:now]
+      Chronic.now = options[:now] || Chronic.time_class.now
 
       # tokenize words
       tokens = tokenize(text, options)
@@ -83,10 +82,8 @@ module Chronic
 
       span = tokens_to_span(tokens, options)
 
-      if options[:guess]
-        guess span
-      else
-        span
+      if span
+        options[:guess] ? guess(span) : span
       end
     end
 
@@ -112,22 +109,20 @@ module Chronic
     def pre_normalize(text)
       text = text.to_s.downcase
       text.gsub!(/['"\.]/, '')
-      text.gsub!(/,/,' ')
+      text.gsub!(/,/, ' ')
       text.gsub!(/\bsecond (of|day|month|hour|minute|second)\b/, '2nd \1')
-      text = numericize_numbers(text)
+      text = Numerizer.numerize(text)
       text.gsub!(/ \-(\d{4})\b/, ' tzminus\1')
       text.gsub!(/([\/\-\,\@])/) { ' ' + $1 + ' ' }
-      text.gsub!(/\b0(\d+:\d+\s*pm?\b)/, '\1')
+      text.gsub!(/(?:^|\s)0(\d+:\d+\s*pm?\b)/, '\1')
       text.gsub!(/\btoday\b/, 'this day')
       text.gsub!(/\btomm?orr?ow\b/, 'next day')
       text.gsub!(/\byesterday\b/, 'last day')
-      text.gsub!(/\bnoon\b/, '12:00')
+      text.gsub!(/\bnoon\b/, '12:00pm')
       text.gsub!(/\bmidnight\b/, '24:00')
-      text.gsub!(/\bbefore now\b/, 'past')
       text.gsub!(/\bnow\b/, 'this second')
-      text.gsub!(/\b(ago|before)\b/, 'past')
-      text.gsub!(/\bthis past\b/, 'last')
-      text.gsub!(/\bthis last\b/, 'last')
+      text.gsub!(/\b(?:ago|before(?: now)?)\b/, 'past')
+      text.gsub!(/\bthis (?:last|past)\b/, 'last')
       text.gsub!(/\b(?:in|during) the (morning)\b/, '\1')
       text.gsub!(/\b(?:in the|during the|at) (afternoon|evening|night)\b/, '\1')
       text.gsub!(/\btonight\b/, 'this night')
@@ -143,6 +138,7 @@ module Chronic
     # @param [String] text The string to convert
     # @return [String] A new string with words converted to numbers
     def numericize_numbers(text)
+      warn "Chronic.numericize_numbers will be deprecated in version 0.7.0. Please use Chronic::Numerizer.numerize instead"
       Numerizer.numerize(text)
     end
 
@@ -151,7 +147,6 @@ module Chronic
     # @param [Span] span
     # @return [Time]
     def guess(span)
-      return nil if span.nil?
       if span.width > 1
         span.begin + (span.width / 2)
       else
@@ -184,9 +179,11 @@ module Chronic
           Handler.new([:repeater_month_name, :ordinal_day, :separator_at?, 'time?'], :handle_rmn_od),
           Handler.new([:ordinal_day, :repeater_month_name, :scalar_year, :separator_at?, 'time?'], :handle_od_rmn_sy),
           Handler.new([:ordinal_day, :repeater_month_name, :separator_at?, 'time?'], :handle_od_rmn),
+          Handler.new([:scalar_year, :repeater_month_name, :ordinal_day], :handle_sy_rmn_od),
           Handler.new([:repeater_time, :repeater_day_portion?, :separator_on?, :repeater_month_name, :ordinal_day], :handle_rmn_od_on),
           Handler.new([:repeater_month_name, :scalar_year], :handle_rmn_sy),
           Handler.new([:scalar_day, :repeater_month_name, :scalar_year, :separator_at?, 'time?'], :handle_sd_rmn_sy),
+          Handler.new([:scalar_day, :repeater_month_name, :separator_at?, 'time?'], :handle_sd_rmn),
           Handler.new([:scalar_year, :separator_slash_or_dash, :scalar_month, :separator_slash_or_dash, :scalar_day, :separator_at?, 'time?'], :handle_sy_sm_sd),
           Handler.new([:scalar_month, :separator_slash_or_dash, :scalar_day, :separator_at?, 'time?'], :handle_sm_sd),
           #Handler.new([:scalar_month, :separator_slash_or_dash, :scalar_year], :handle_sm_sy)
@@ -224,10 +221,56 @@ module Chronic
       when :middle
         @definitions[:endian] = endians
       else
-        raise InvalidArgumentException, "Unknown endian option '#{endian}'"
+        raise ArgumentError, "Unknown endian option '#{endian}'"
       end
 
       @definitions
+    end
+
+    # Construct a time Object
+    #
+    # @return [Time]
+    def construct(year, month = 1, day = 1, hour = 0, minute = 0, second = 0)
+      if second >= 60
+        minute += second / 60
+        second = second % 60
+      end
+
+      if minute >= 60
+        hour += minute / 60
+        minute = minute % 60
+      end
+
+      if hour >= 24
+        day += hour / 24
+        hour = hour % 24
+      end
+
+      # determine if there is a day overflow. this is complicated by our crappy calendar
+      # system (non-constant number of days per month)
+      day <= 56 || raise("day must be no more than 56 (makes month resolution easier)")
+      if day > 28
+        # no month ever has fewer than 28 days, so only do this if necessary
+        leap_year_month_days = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+        common_year_month_days = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+        days_this_month = Date.leap?(year) ? leap_year_month_days[month - 1] : common_year_month_days[month - 1]
+        if day > days_this_month
+          month += day / days_this_month
+          day = day % days_this_month
+        end
+      end
+
+      if month > 12
+        if month % 12 == 0
+          year += (month - 12) / 12
+          month = 12
+        else
+          year += month / 12
+          month = month % 12
+        end
+      end
+
+      Chronic.time_class.local(year, month, day, hour, minute, second)
     end
 
     private
@@ -236,7 +279,7 @@ module Chronic
       text = pre_normalize(text)
       tokens = text.split(' ').map { |word| Token.new(word) }
       [Repeater, Grabber, Pointer, Scalar, Ordinal, Separator, TimeZone].each do |tok|
-        tokens = tok.scan(tokens, options)
+        tok.scan(tokens, options)
       end
       tokens.select { |token| token.tagged? }
     end
@@ -244,35 +287,30 @@ module Chronic
     def tokens_to_span(tokens, options)
       definitions = definitions(options)
 
-      (definitions[:date] + definitions[:endian]).each do |handler|
+      (definitions[:endian] + definitions[:date]).each do |handler|
         if handler.match(tokens, definitions)
-          puts "-date" if Chronic.debug
           good_tokens = tokens.select { |o| !o.get_tag Separator }
-          return Handlers.send(handler.handler_method, good_tokens, options)
+          return handler.invoke(:date, good_tokens, options)
         end
       end
 
       definitions[:anchor].each do |handler|
         if handler.match(tokens, definitions)
-          puts "-anchor" if Chronic.debug
           good_tokens = tokens.select { |o| !o.get_tag Separator }
-          return Handlers.send(handler.handler_method, good_tokens, options)
+          return handler.invoke(:anchor, good_tokens, options)
         end
       end
 
       definitions[:arrow].each do |handler|
         if handler.match(tokens, definitions)
-          puts "-arrow" if Chronic.debug
           good_tokens = tokens.reject { |o| o.get_tag(SeparatorAt) || o.get_tag(SeparatorSlashOrDash) || o.get_tag(SeparatorComma) }
-          return Handlers.send(handler.handler_method, good_tokens, options)
+          return handler.invoke(:arrow, good_tokens, options)
         end
       end
 
       definitions[:narrow].each do |handler|
         if handler.match(tokens, definitions)
-          puts "-narrow" if Chronic.debug
-          good_tokens = tokens.select { |o| !o.get_tag Separator }
-          return Handlers.send(handler.handler_method, tokens, options)
+          return handler.invoke(:narrow, tokens, options)
         end
       end
 
@@ -284,10 +322,5 @@ module Chronic
 
   # Internal exception
   class ChronicPain < Exception
-  end
-
-  # This exception is raised if an invalid argument is provided to
-  # any of Chronic's methods
-  class InvalidArgumentException < Exception
   end
 end

@@ -1,5 +1,38 @@
 # HEAD
 
+* Fix bug when parsing strings prefixed with PM
+
+# 0.6.4 / 2011-08-08
+
+* Fixed bug where 'noon' was parsed as 00:00 rather than 12:00
+  with :ambiguous_time_range => :none (Vladimir Chernis)
+* Add support for handling '2009 May 22nd'
+* Add the ability to handle scalar-day/repeater-month-name as well as ordinals
+
+# 0.6.3 / 2011-08-01
+
+* Ensure 'thu' is parsed as Thursday for 1.8.7 generic timestamp
+
+# 0.6.2 / 2011-07-28
+
+* Ensure specific endian handlers are prioritised over normal date handlers
+* Recognize UTC as timezone and accept HH::MM timezone offset (Jason Dusek)
+
+# 0.6.1 / 2011-07-21
+
+* Ensure Handler definitions are executed in the correct order
+
+# 0.6.0 / 2011-07-19
+
+* Attempting to parse strings with days past the last day of a month will
+  now return nil. ex: `Chronic.parse("30th February") #=> nil`
+* All deprecated methods are marked for removal in Chronic 0.7.0
+* Deprecated `Chronic.numericize_numbers` instead use
+  `Chronic::Numerizer.numerize`
+* Deprecated `Chronic::InvalidArgumentException` and instead use
+  `ArgumentError`
+* Deprecated `Time.construct` and use `Chronic.construct` in place of this
+* Deprecated `Time#to_minidate`, instead use `Chronic::MiniDate.from_time(time)`
 * Add support for handling generic timestamp for Ruby 1.9+
 
 # 0.5.0 / 2011-07-01
