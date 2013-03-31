@@ -28,7 +28,7 @@ require 'date'
 #
 # @author Tom Preston-Werner, Lee Jarvis
 module Chronic
-  VERSION = "0.6.4"
+  VERSION = "0.7"
 
   class << self
 
@@ -64,39 +64,39 @@ module Chronic
   self.time_class = Time
 end
 
-require 'chronic/chronic'
-require 'chronic/handler'
-require 'chronic/handlers'
-require 'chronic/mini_date'
-require 'chronic/tag'
-require 'chronic/span'
-require 'chronic/token'
-require 'chronic/grabber'
-require 'chronic/pointer'
-require 'chronic/scalar'
-require 'chronic/ordinal'
-require 'chronic/separator'
-require 'chronic/time_zone'
-require 'chronic/numerizer'
-require 'chronic/season'
+require 'muflax-chronic/chronic'
+require 'muflax-chronic/handler'
+require 'muflax-chronic/handlers'
+require 'muflax-chronic/mini_date'
+require 'muflax-chronic/tag'
+require 'muflax-chronic/span'
+require 'muflax-chronic/token'
+require 'muflax-chronic/grabber'
+require 'muflax-chronic/pointer'
+require 'muflax-chronic/scalar'
+require 'muflax-chronic/ordinal'
+require 'muflax-chronic/separator'
+require 'muflax-chronic/time_zone'
+require 'muflax-chronic/numerizer'
+require 'muflax-chronic/season'
 
-require 'chronic/repeater'
-require 'chronic/repeaters/repeater_year'
-require 'chronic/repeaters/repeater_season'
-require 'chronic/repeaters/repeater_season_name'
-require 'chronic/repeaters/repeater_month'
-require 'chronic/repeaters/repeater_month_name'
-require 'chronic/repeaters/repeater_fortnight'
-require 'chronic/repeaters/repeater_week'
-require 'chronic/repeaters/repeater_weekend'
-require 'chronic/repeaters/repeater_weekday'
-require 'chronic/repeaters/repeater_day'
-require 'chronic/repeaters/repeater_day_name'
-require 'chronic/repeaters/repeater_day_portion'
-require 'chronic/repeaters/repeater_hour'
-require 'chronic/repeaters/repeater_minute'
-require 'chronic/repeaters/repeater_second'
-require 'chronic/repeaters/repeater_time'
+require 'muflax-chronic/repeater'
+require 'muflax-chronic/repeaters/repeater_year'
+require 'muflax-chronic/repeaters/repeater_season'
+require 'muflax-chronic/repeaters/repeater_season_name'
+require 'muflax-chronic/repeaters/repeater_month'
+require 'muflax-chronic/repeaters/repeater_month_name'
+require 'muflax-chronic/repeaters/repeater_fortnight'
+require 'muflax-chronic/repeaters/repeater_week'
+require 'muflax-chronic/repeaters/repeater_weekend'
+require 'muflax-chronic/repeaters/repeater_weekday'
+require 'muflax-chronic/repeaters/repeater_day'
+require 'muflax-chronic/repeaters/repeater_day_name'
+require 'muflax-chronic/repeaters/repeater_day_portion'
+require 'muflax-chronic/repeaters/repeater_hour'
+require 'muflax-chronic/repeaters/repeater_minute'
+require 'muflax-chronic/repeaters/repeater_second'
+require 'muflax-chronic/repeaters/repeater_time'
 
 class Time
   def self.construct(year, month = 1, day = 1, hour = 0, minute = 0, second = 0)

@@ -1,5 +1,5 @@
 $:.unshift File.expand_path('../lib', __FILE__)
-require 'chronic'
+require 'muflax-chronic'
 
 Gem::Specification.new do |s|
   s.name = 'muflax-chronic'
